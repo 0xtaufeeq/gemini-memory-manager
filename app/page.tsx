@@ -491,6 +491,22 @@ export default function GeminiMemoryManager() {
         </div>
       )}
       
+      {/* Mobile Overlay for Sidebar */}
+      {sidebarOpen && (
+        <div 
+          className="lg:hidden absolute inset-0 z-40 bg-black bg-opacity-50 transition-opacity duration-300"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Mobile Overlay for Memory Panel */}
+      {memoryOpen && (
+        <div 
+          className="lg:hidden absolute inset-0 z-40 bg-black bg-opacity-50 transition-opacity duration-300"
+          onClick={() => setMemoryOpen(false)}
+        />
+      )}
+      
       {/* Resize Overlay */}
       {isResizing && (
         <div className="absolute inset-0 z-50 bg-black bg-opacity-20 pointer-events-none" />
@@ -498,11 +514,12 @@ export default function GeminiMemoryManager() {
       {/* Sidebar */}
       <div
         className={`${
-          sidebarOpen ? "" : "w-0"
-        } transition-all duration-300 ease-out bg-black border-r border-zinc-800 flex flex-col overflow-hidden h-full relative`}
+          sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+        } fixed lg:relative z-50 lg:z-auto transition-all duration-300 ease-out bg-black border-r border-zinc-800 flex flex-col overflow-hidden h-full 
+        w-80 lg:w-auto ${!sidebarOpen ? "lg:w-0" : ""}`}
         style={{ 
           width: sidebarOpen ? `${sidebarWidth}px` : '0px',
-          transition: isResizing ? 'none' : 'width 0.3s ease-out'
+          transition: isResizing ? 'none' : 'all 0.3s ease-out'
         }}
       >
         <div className="p-4 border-b border-zinc-800">
@@ -513,14 +530,14 @@ export default function GeminiMemoryManager() {
               </div>
                               <span className="font-medium text-white">Memory Manager</span>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setSidebarOpen(false)}
-              className="text-zinc-400 hover:text-white hover:bg-zinc-800 p-1 h-auto lg:hidden"
-            >
-              <X className="w-4 h-4" />
-            </Button>
+                          <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSidebarOpen(false)}
+                className="text-zinc-400 hover:text-white hover:bg-zinc-800 p-1.5 h-auto lg:hidden"
+              >
+                <X className="w-5 h-5" />
+              </Button>
           </div>
           <Button
             onClick={startNewChat}
@@ -592,10 +609,10 @@ export default function GeminiMemoryManager() {
           </div>
         </div>
 
-        {/* Resize Handle */}
+        {/* Resize Handle - Desktop Only */}
         {sidebarOpen && (
           <div
-            className={`absolute right-0 top-0 bottom-0 w-2 bg-transparent hover:bg-zinc-600/50 cursor-col-resize transition-colors z-10 ${
+            className={`hidden lg:block absolute right-0 top-0 bottom-0 w-2 bg-transparent hover:bg-zinc-600/50 cursor-col-resize transition-colors z-10 ${
               isResizing ? 'bg-zinc-500/50' : ''
             }`}
             onMouseDown={handleMouseDown}
@@ -612,36 +629,41 @@ export default function GeminiMemoryManager() {
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col bg-black h-full">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-zinc-800">
-          <div className="flex items-center space-x-3">
+        <div className="flex items-center justify-between p-3 sm:p-4 border-b border-zinc-800">
+          <div className="flex items-center space-x-2 sm:space-x-3 flex-1 min-w-0">
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="text-zinc-400 hover:text-white hover:bg-zinc-800 p-2 h-auto"
+                className="text-zinc-400 hover:text-white hover:bg-zinc-800 p-1.5 sm:p-2 h-auto flex-shrink-0"
               >
                 <Menu className="w-4 h-4" />
               </Button>
 
               <Select value={selectedModel} onValueChange={setSelectedModel}>
-              <SelectTrigger className="w-48 bg-zinc-900 border-zinc-700 text-white">
+                <SelectTrigger className="w-32 sm:w-40 lg:w-48 bg-zinc-900 border-zinc-700 text-white text-xs sm:text-sm">
                   <SelectValue />
                 </SelectTrigger>
-              <SelectContent className="bg-zinc-900 border-zinc-700">
-                <SelectItem value="gemini-1.5-pro" className="text-white hover:bg-zinc-800">
-                  Gemini 1.5 Pro
-                </SelectItem>
-                <SelectItem value="gemini-1.5-flash" className="text-white hover:bg-zinc-800">
-                  Gemini 1.5 Flash
-                </SelectItem>
-                <SelectItem value="gemini-2.0-flash-exp" className="text-white hover:bg-zinc-800">
-                  Gemini 2.0 Flash (Experimental)
+                <SelectContent className="bg-zinc-900 border-zinc-700">
+                  <SelectItem value="gemini-1.5-pro" className="text-white hover:bg-zinc-800 text-xs sm:text-sm">
+                    <span className="hidden sm:inline">Gemini 1.5 Pro</span>
+                    <span className="sm:hidden">1.5 Pro</span>
                   </SelectItem>
-                <SelectItem value="gemini-2.5-pro" className="text-white hover:bg-zinc-800">
-                  Gemini 2.5 Pro
+                  <SelectItem value="gemini-1.5-flash" className="text-white hover:bg-zinc-800 text-xs sm:text-sm">
+                    <span className="hidden sm:inline">Gemini 1.5 Flash</span>
+                    <span className="sm:hidden">1.5 Flash</span>
                   </SelectItem>
-                <SelectItem value="gemini-2.5-flash" className="text-white hover:bg-zinc-800">
-                  Gemini 2.5 Flash
+                  <SelectItem value="gemini-2.0-flash-exp" className="text-white hover:bg-zinc-800 text-xs sm:text-sm">
+                    <span className="hidden sm:inline">Gemini 2.0 Flash (Experimental)</span>
+                    <span className="sm:hidden">2.0 Flash</span>
+                  </SelectItem>
+                  <SelectItem value="gemini-2.5-pro" className="text-white hover:bg-zinc-800 text-xs sm:text-sm">
+                    <span className="hidden sm:inline">Gemini 2.5 Pro</span>
+                    <span className="sm:hidden">2.5 Pro</span>
+                  </SelectItem>
+                  <SelectItem value="gemini-2.5-flash" className="text-white hover:bg-zinc-800 text-xs sm:text-sm">
+                    <span className="hidden sm:inline">Gemini 2.5 Flash</span>
+                    <span className="sm:hidden">2.5 Flash</span>
                   </SelectItem>
                 </SelectContent>
               </Select>
@@ -650,13 +672,13 @@ export default function GeminiMemoryManager() {
             variant="ghost"
             size="sm"
             onClick={() => setMemoryOpen(prev => !prev)}
-            className={`p-2 h-auto transition-colors relative ${
+            className={`p-1.5 sm:p-2 h-auto transition-colors relative flex-shrink-0 ${
               memoryOpen 
                 ? "text-white bg-zinc-800" 
                 : "text-zinc-400 hover:text-white hover:bg-zinc-800"
             }`}
           >
-            <span className="text-sm">Memory</span>
+            <span className="text-xs sm:text-sm">Memory</span>
             {memoryProcessing && (
               <div className="absolute -top-1 -right-1 w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
             )}
@@ -665,34 +687,34 @@ export default function GeminiMemoryManager() {
 
         {/* Messages */}
         <ScrollArea className="flex-1 overflow-hidden">
-          <div className="max-w-3xl mx-auto px-4 py-8">
+          <div className="max-w-3xl mx-auto px-3 sm:px-4 py-4 sm:py-8">
             {messages.length === 0 && (
-              <div className="text-center py-20">
-                <div className="w-20 h-20 bg-zinc-900 rounded-full flex items-center justify-center mx-auto mb-6 p-4">
+              <div className="text-center py-12 sm:py-20">
+                <div className="w-16 sm:w-20 h-16 sm:h-20 bg-zinc-900 rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6 p-3 sm:p-4">
                   <img src="/gemini.png" alt="Gemini" className="w-full h-full object-contain" />
                 </div>
-                <h2 className="text-2xl font-medium mb-2 text-white">
+                <h2 className="text-xl sm:text-2xl font-medium mb-2 text-white">
                   How can I help you today?
                 </h2>
-                <p className="text-zinc-400">Start a conversation with Gemini Memory Manager</p>
+                <p className="text-sm sm:text-base text-zinc-400">Start a conversation with Gemini Memory Manager</p>
               </div>
             )}
 
-            <div className="space-y-8">
+            <div className="space-y-4 sm:space-y-8">
               {messages.map((message) => (
                 <div
                   key={message.id}
                   className="group"
                 >
-                  <div className="flex items-start space-x-4">
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0">
+                  <div className="flex items-start space-x-3 sm:space-x-4">
+                    <div className="w-7 sm:w-8 h-7 sm:h-8 rounded-full flex items-center justify-center flex-shrink-0">
                     {message.role === "user" ? (
-                        <div className="w-8 h-8 bg-zinc-700 rounded-full flex items-center justify-center">
-                          <User className="w-4 h-4 text-white" />
+                        <div className="w-7 sm:w-8 h-7 sm:h-8 bg-zinc-700 rounded-full flex items-center justify-center">
+                          <User className="w-3.5 sm:w-4 h-3.5 sm:h-4 text-white" />
                         </div>
                       ) : (
-                        <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center">
-                          <Bot className="w-4 h-4 text-black" />
+                        <div className="w-7 sm:w-8 h-7 sm:h-8 bg-white rounded-full flex items-center justify-center">
+                          <Bot className="w-3.5 sm:w-4 h-3.5 sm:h-4 text-black" />
                         </div>
                       )}
                     </div>
@@ -795,23 +817,23 @@ export default function GeminiMemoryManager() {
         </ScrollArea>
 
         {/* Input */}
-        <div className="p-4 border-t border-zinc-800">
+        <div className="p-3 sm:p-4 border-t border-zinc-800">
           <form onSubmit={handleCustomSubmit} className="max-w-3xl mx-auto">
             <div className="relative">
                 <Input
                   value={input}
                 onChange={handleInputChange}
                 placeholder="Message Gemini Memory Manager..."
-                className="w-full bg-zinc-900 border-zinc-700 text-white placeholder-zinc-400 rounded-2xl px-4 py-3 pr-12 focus:border-zinc-600 focus:ring-0"
+                className="w-full bg-zinc-900 border-zinc-700 text-white placeholder-zinc-400 rounded-2xl px-3 sm:px-4 py-2.5 sm:py-3 pr-10 sm:pr-12 focus:border-zinc-600 focus:ring-0 text-sm sm:text-base"
                 disabled={isLoading}
               />
               <Button
                 type="submit"
                 disabled={isLoading || !input.trim()}
                 size="sm"
-                className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-white hover:bg-zinc-200 text-black rounded-xl w-8 h-8 p-0 disabled:bg-zinc-700 disabled:text-zinc-400"
+                className="absolute right-1.5 sm:right-2 top-1/2 transform -translate-y-1/2 bg-white hover:bg-zinc-200 text-black rounded-xl w-7 sm:w-8 h-7 sm:h-8 p-0 disabled:bg-zinc-700 disabled:text-zinc-400"
               >
-                <Send className="w-4 h-4" />
+                <Send className="w-3.5 sm:w-4 h-3.5 sm:h-4" />
               </Button>
             </div>
           </form>
@@ -820,8 +842,9 @@ export default function GeminiMemoryManager() {
 
       {/* Memory Panel */}
       <div className={`${
-          memoryOpen ? "w-80" : "w-0"
-        } transition-all duration-300 ease-out bg-black border-l border-zinc-800 flex flex-col overflow-hidden h-full`}>
+          memoryOpen ? "translate-x-0" : "translate-x-full lg:translate-x-0"
+        } fixed lg:relative right-0 top-0 z-50 lg:z-auto transition-all duration-300 ease-out bg-black border-l border-zinc-800 flex flex-col overflow-hidden h-full 
+        w-80 lg:w-auto ${!memoryOpen ? "lg:w-0" : ""}`}>
           <div className="p-4 border-b border-zinc-800">
             <div className="flex items-center justify-between mb-2">
               <h2 className="font-medium text-white">
@@ -831,9 +854,9 @@ export default function GeminiMemoryManager() {
                 variant="ghost"
                 size="sm"
                 onClick={() => setMemoryOpen(false)}
-                className="text-zinc-400 hover:text-white hover:bg-zinc-800 p-1 h-auto"
+                className="text-zinc-400 hover:text-white hover:bg-zinc-800 p-1.5 sm:p-1 h-auto"
               >
-                <X className="w-4 h-4" />
+                <X className="w-5 sm:w-4 h-5 sm:h-4" />
               </Button>
             </div>
             <div className="flex items-center justify-between">
