@@ -469,7 +469,7 @@ export default function GeminiMemoryManager() {
 
 
   return (
-    <div className="h-screen bg-black text-white flex overflow-hidden relative">
+    <div className="h-screen min-h-screen bg-black text-white flex overflow-hidden relative">
       {/* Professional Loading Screen */}
       {isAppLoading && (
         <div className="absolute inset-0 z-[100] bg-black flex items-center justify-center">
@@ -627,7 +627,7 @@ export default function GeminiMemoryManager() {
       </div>
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col bg-black h-full">
+      <div className="flex-1 flex flex-col bg-black h-full min-h-0">
         {/* Header */}
         <div className="flex items-center justify-between p-3 sm:p-4 border-b border-zinc-800">
           <div className="flex items-center space-x-2 sm:space-x-3 flex-1 min-w-0">
@@ -686,8 +686,9 @@ export default function GeminiMemoryManager() {
         </div>
 
         {/* Messages */}
-        <ScrollArea className="flex-1 overflow-hidden">
-          <div className="max-w-3xl mx-auto px-3 sm:px-4 py-4 sm:py-8">
+        <div className="flex-1 overflow-hidden">
+          <ScrollArea className="h-full">
+            <div className="max-w-3xl mx-auto px-3 sm:px-4 py-4 sm:py-8">
             {messages.length === 0 && (
               <div className="text-center py-12 sm:py-20">
                 <div className="w-16 sm:w-20 h-16 sm:h-20 bg-zinc-900 rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6 p-3 sm:p-4">
@@ -813,11 +814,12 @@ export default function GeminiMemoryManager() {
                 </div>
               </div>
             )}
-          </div>
-        </ScrollArea>
+            </div>
+          </ScrollArea>
+        </div>
 
         {/* Input */}
-        <div className="p-3 sm:p-4 border-t border-zinc-800">
+        <div className="p-3 sm:p-4 border-t border-zinc-800 flex-shrink-0">
           <form onSubmit={handleCustomSubmit} className="max-w-3xl mx-auto">
             <div className="relative">
                 <Input
