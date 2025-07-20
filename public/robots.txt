@@ -1,0 +1,35 @@
+User-agent: *
+Allow: /
+
+# Important pages
+Allow: /api/auth/
+Allow: /$
+
+# Block sensitive API routes
+Disallow: /api/chat
+Disallow: /api/memories
+Disallow: /api/chat-sessions
+Disallow: /api/memory-extract
+
+# Block build files
+Disallow: /_next/
+Disallow: /static/
+
+# Allow static assets
+Allow: /favicon.ico
+Allow: /robots.txt
+Allow: /sitemap.xml
+Allow: /*.css
+Allow: /*.js
+Allow: /*.png
+Allow: /*.jpg
+Allow: /*.jpeg
+Allow: /*.gif
+Allow: /*.svg
+Allow: /*.ico
+
+# Sitemap location
+Sitemap: https://gemini-memory-manager.vercel.app/sitemap.xml
+
+# Crawl delay
+Crawl-delay: 1 
