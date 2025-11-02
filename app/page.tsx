@@ -19,6 +19,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { AnimatedGridPattern } from "@/components/ui/animated-grid-pattern"
+import { MagicCard } from "@/components/ui/magic-card"
 import { useToast } from "@/hooks/use-toast"
 
 import { MessageSquare, Plus, Trash2, Send, User, Bot, Menu, X, Edit2 } from "lucide-react"
@@ -542,6 +544,13 @@ export default function GeminiMemoryManager() {
 
   return (
     <div className="h-screen min-h-screen bg-black text-white flex overflow-hidden relative">
+      {/* Animated Grid Pattern Background */}
+      <AnimatedGridPattern
+        numSquares={30}
+        maxOpacity={0.1}
+        duration={3}
+        className="pointer-events-none"
+      />
       {/* Professional Loading Screen */}
       {isAppLoading && (
         <div className="absolute inset-0 z-[100] bg-black flex items-center justify-center">
@@ -793,11 +802,11 @@ export default function GeminiMemoryManager() {
                               const inline = (props as any)?.inline
                               const match = /language-(\w+)/.exec(className || '')
                               return !inline && match ? (
-                                <pre className="bg-zinc-900 rounded-lg p-4 overflow-x-auto border border-zinc-800">
+                                <MagicCard className="rounded-lg p-4 overflow-x-auto" gradientFrom="from-gray-500/10" gradientTo="to-gray-600/10">
                                   <code className={className} {...props}>
                                     {children}
                                   </code>
-                                </pre>
+                                </MagicCard>
                               ) : (
                                 <code className="bg-zinc-800 px-1.5 py-0.5 rounded text-sm" {...props}>
                                   {children}
@@ -833,14 +842,16 @@ export default function GeminiMemoryManager() {
                         </ReactMarkdown>
                       </div>
                     {message.reasoning && (
-                        <div className="mt-4 p-4 bg-zinc-900 rounded-lg border border-zinc-800">
-                          <div className="text-xs text-zinc-400 mb-2">
-                          <span>Reasoning Process</span>
-                        </div>
-                          <div className="text-sm text-zinc-300 whitespace-pre-wrap leading-relaxed">
-                          {message.reasoning}
-                        </div>
-                      </div>
+                        <MagicCard className="mt-4 p-4" gradientFrom="from-purple-500/20" gradientTo="to-blue-500/20">
+                          <div className="relative z-10">
+                            <div className="text-xs text-zinc-400 mb-2">
+                              <span>Reasoning Process</span>
+                            </div>
+                            <div className="text-sm text-zinc-300 whitespace-pre-wrap leading-relaxed">
+                              {message.reasoning}
+                            </div>
+                          </div>
+                        </MagicCard>
                     )}
                   </div>
                 </div>
@@ -959,10 +970,13 @@ export default function GeminiMemoryManager() {
           <ScrollArea className="flex-1 p-2 overflow-hidden">
           <div className="space-y-2">
               {memories.map((memory) => (
-                <div
+                <MagicCard
                 key={memory.id}
-                  className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 group hover:bg-zinc-800/50 transition-colors"
-              >
+                  className="p-3 group"
+                  gradientFrom="from-blue-500/20"
+                  gradientTo="to-purple-500/20"
+                >
+                  <div className="relative z-10">
                   <div className="flex items-start justify-between mb-2 gap-2">
                     {editingMemory === memory.id ? (
                       <div className="flex-1 min-w-0">
@@ -1027,7 +1041,8 @@ export default function GeminiMemoryManager() {
                       {new Date(memory.created_at).toLocaleDateString()}
                     </div>
                   </div>
-                </div>
+                  </div>
+                </MagicCard>
               ))}
               {memories.length === 0 && !memoryProcessing && (
                 <div className="text-center py-12">
