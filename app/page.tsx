@@ -45,14 +45,11 @@ export default function GeminiMemoryManager() {
   const [chatSessions, setChatSessions] = useState<ChatSession[]>([])
   const [currentSessionId, setCurrentSessionId] = useState<string>("")
   const [sidebarOpen, setSidebarOpen] = useState(true)
-  const [sidebarWidth, setSidebarWidth] = useState(256) // 256px = w-64
-  const [isResizing, setIsResizing] = useState(false)
   const [memoryOpen, setMemoryOpen] = useState(false)
   const [editingMemory, setEditingMemory] = useState<string | null>(null)
   const [editContent, setEditContent] = useState("")
   const [memoryProcessing, setMemoryProcessing] = useState(false)
   const [isAppLoading, setIsAppLoading] = useState(true)
-  const [loadingText, setLoadingText] = useState("Initializing...")
 
   const { messages, input, handleInputChange, handleSubmit, isLoading, setMessages, append } = useChat({
     api: "/api/chat",
@@ -244,10 +241,8 @@ export default function GeminiMemoryManager() {
   useEffect(() => {
     const initializeData = async () => {
       try {
-        setLoadingText("Loading...")
-        
         // Run memory and chat session fetching in parallel for faster loading
-        const [_, __] = await Promise.all([
+        await Promise.all([
           fetchMemories(),
           fetchChatSessions()
         ])
@@ -268,23 +263,12 @@ export default function GeminiMemoryManager() {
     initializeData()
   }, [])
 
-  // Cleanup event listeners on unmount (handled in individual mouse events now)
+  // Cleanup event listeners on unmount
 
-  // Add body cursor style when resizing
-  useEffect(() => {
-    if (isResizing) {
-      document.body.style.cursor = 'col-resize'
-      document.body.style.userSelect = 'none'
-    } else {
-      document.body.style.cursor = ''
-      document.body.style.userSelect = ''
-    }
-    
-    return () => {
-      document.body.style.cursor = ''
-      document.body.style.userSelect = ''
-    }
-  }, [isResizing])
+  const loadChatSession = (session: ChatSession) => {
+    setMessages(session.messages)
+    setCurrentSessionId(session.id)
+  }
 
   // Chat session management functions
   const fetchChatSessions = async () => {
@@ -441,30 +425,10 @@ export default function GeminiMemoryManager() {
   }
 
   // Helper function to truncate text
-  const truncateText = (text: string, maxLength: number = 15): string => {
+  const truncateText = (text: string, maxLength: number = 30): string => {
     if (text.length <= maxLength) return text
     return text.substring(0, maxLength).trim() + "..."
   }
-
-  // Sidebar resize functionality
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    setIsResizing(true)
-    e.preventDefault()
-    
-    const handleMouseMove = (e: MouseEvent) => {
-      const newWidth = Math.max(240, Math.min(500, e.clientX)) // Min 240px, Max 500px (increased min width)
-      setSidebarWidth(newWidth)
-    }
-
-    const handleMouseUp = () => {
-      setIsResizing(false)
-      document.removeEventListener('mousemove', handleMouseMove)
-      document.removeEventListener('mouseup', handleMouseUp)
-    }
-
-    document.addEventListener('mousemove', handleMouseMove)
-    document.addEventListener('mouseup', handleMouseUp)
-  }, [])
 
 
 

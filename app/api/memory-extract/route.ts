@@ -3,7 +3,7 @@ import { generateText } from 'ai'
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 
-const model = google('gemini-1.5-pro')
+const model = google('gemini-2.0-flash-exp')
 
 // Memory categories and actions
 type MemoryCategory = 'allergy' | 'like' | 'dislike' | 'attribute'
@@ -18,34 +18,29 @@ interface ExtractedMemory {
 
 // Sentinel: Check if message contains memory-worthy information
 async function isMemoryWorthy(message: string): Promise<boolean> {
-  const sentinelPrompt = `
-Your job is to assess a message to determine if it contains any personal information worth remembering.
+  const sentinelPrompt = `Analyze this message and determine if it contains personal information worth remembering.
 
-Look for ANY of these types of information:
-1. Food preferences: likes, dislikes, allergies (e.g. "I love pizza", "I'm allergic to nuts", "I hate spicy food")
-2. Personal attributes: location, family, lifestyle, diet (e.g. "I live in NYC", "I'm vegetarian", "I have kids")
-3. Interests and hobbies: what they enjoy doing (e.g. "I love gaming", "I enjoy hiking")
-4. Technology preferences: devices, brands, tools they like (e.g. "I love Samsung", "I use iPhone", "I prefer Windows")
-5. Work or professional details (e.g. "I'm a developer", "I work from home")
+Look for ANY of these:
+1. Food preferences: likes, dislikes, allergies (e.g. "I love pizza", "allergic to nuts", "hate spicy food")
+2. Personal attributes: location, family, lifestyle, diet (e.g. "live in NYC", "vegetarian", "have kids")
+3. Interests/hobbies: what they enjoy (e.g. "love gaming", "enjoy hiking")
+4. Technology preferences: devices, brands, tools (e.g. "love Samsung", "use iPhone", "prefer Windows")
+5. Work/professional details (e.g. "I'm a developer", "work from home")
 6. Any other personal preference or characteristic
-7. Memory management requests: asking to remember, forget, delete, or update information (e.g. "remember I like cats", "forget about my dog", "delete my vegetarian preference")
+7. Memory management: remember/forget/delete/update requests
 
-Message to analyze: "${message}"
-
-If the message contains ANY personal information worth remembering OR requests to modify memories, respond with TRUE.
-If it's just a question or general statement with no personal info or memory requests, respond with FALSE.
+Message: "${message}"
 
 Examples:
-- "I love Samsung devices" → TRUE (technology preference)
-- "I'm vegetarian" → TRUE (dietary preference)  
-- "What's the weather?" → FALSE (no personal info)
-- "I hate spicy food" → TRUE (food preference)
-- "Delete my memory about cats" → TRUE (memory management request)
-- "Forget that I'm vegetarian" → TRUE (memory management request)
-- "Remove my preference for Samsung" → TRUE (memory management request)
+"I love Samsung devices" → TRUE
+"I'm vegetarian" → TRUE
+"What's the weather?" → FALSE
+"I hate spicy food" → TRUE
+"remember I like cats" → TRUE
+"I live in New York" → TRUE
+"Tell me a joke" → FALSE
 
-ONLY RESPOND WITH TRUE OR FALSE. No explanations.
-`
+Respond with exactly one word: TRUE or FALSE`
 
   try {
     const result = await generateText({
@@ -55,7 +50,16 @@ ONLY RESPOND WITH TRUE OR FALSE. No explanations.
     })
     
     console.log('🤖 Sentinel response:', result.text)
-    return result.text.toUpperCase().includes('TRUE')
+    const responseText = result.text.trim().toUpperCase()
+    
+    // Check for various affirmative responses
+    const isTrue = responseText.includes('TRUE') || 
+                   responseText === 'YES' || 
+                   responseText.startsWith('TRUE') ||
+                   responseText.startsWith('YES')
+    
+    console.log('🎯 Sentinel decision:', isTrue ? '✅ MEMORY-WORTHY' : '❌ NOT MEMORY-WORTHY')
+    return isTrue
   } catch (error) {
     console.error('❌ Sentinel error:', error)
     return false
@@ -64,53 +68,51 @@ ONLY RESPOND WITH TRUE OR FALSE. No explanations.
 
 // Knowledge Master: Extract specific memories from message
 async function extractMemories(message: string, existingMemories: string[]): Promise<ExtractedMemory[]> {
-  const extractionPrompt = `
-You are a memory extraction expert. Analyze the message for personal information worth storing.
+  const extractionPrompt = `Extract personal information worth remembering from this message.
 
-Categories:
-- "allergy": Food allergies (life-threatening) - only if certain it's an allergy, not just dislike
-- "like": Things the person enjoys (food, technology, activities, brands, etc.)
-- "dislike": Things the person dislikes or avoids (food, technology, activities, etc.)
-- "attribute": Personal characteristics (location, family, job, lifestyle, diet, etc.)
+CATEGORIES:
+- "allergy": Food allergies (ONLY if explicitly stated as allergy)
+- "like": Things the person enjoys (food, tech, activities, brands, animals, colors, etc.)
+- "dislike": Things the person dislikes
+- "attribute": Personal characteristics (location, family, job, diet, etc.)
 
-Actions:
-- "create": New information
-- "update": Modify existing information  
-- "delete": Remove specific memories (match keywords from deletion request to existing memories)
+ACTIONS:
+- "create": New information to store
+- "update": Modify existing information
+- "delete": Remove specific memory
 
-Current memories:
-${existingMemories.map((mem, i) => `${i + 1}. ${mem}`).join('\n')}
+EXISTING MEMORIES:
+${existingMemories.length > 0 ? existingMemories.map((mem, i) => `${i + 1}. ${mem}`).join('\n') : 'None'}
 
-For deletion requests, look for keywords in the user's message and match them to existing memories above. 
-For example: "delete memory about cats" should match memory "loves cats" if it exists.
+MESSAGE: "${message}"
 
-Message to analyze: "${message}"
+EXAMPLES:
+Input: "I love cats"
+Output: [{"content": "loves cats", "category": "like", "action": "create"}]
 
-Examples:
-- "I love Samsung devices" → {"content": "loves Samsung devices", "category": "like", "action": "create"}
-- "I'm allergic to nuts" → {"content": "allergic to nuts", "category": "allergy", "action": "create"}
-- "I live in New York" → {"content": "lives in New York", "category": "attribute", "action": "create"}
-- "I hate spicy food" → {"content": "dislikes spicy food", "category": "dislike", "action": "create"}
-- "Delete my memory about cats" → {"content": "", "category": "like", "action": "delete", "oldContent": "loves cats"}
-- "Forget that I'm vegetarian" → {"content": "", "category": "attribute", "action": "delete", "oldContent": "is a vegetarian"}  
-- "Remove my Samsung preference" → {"content": "", "category": "like", "action": "delete", "oldContent": "loves Samsung devices"}
-- "Delete the cat thing" → {"content": "", "category": "like", "action": "delete", "oldContent": "loves cats"} (fuzzy match)
-- "Remove vegetarian" → {"content": "", "category": "attribute", "action": "delete", "oldContent": "is a vegetarian"} (fuzzy match)
+Input: "I'm allergic to peanuts"
+Output: [{"content": "allergic to peanuts", "category": "allergy", "action": "create"}]
 
-Extract memories in this exact JSON format:
-[
-  {
-    "content": "brief description in third person (e.g., 'loves Samsung devices', 'allergic to nuts')",
-    "category": "allergy|like|dislike|attribute",
-    "action": "create|update|delete",
-    "oldContent": "exact text to replace (only for update/delete)"
-  }
-]
+Input: "I live in New York"
+Output: [{"content": "lives in New York", "category": "attribute", "action": "create"}]
 
-If no memories found, return: []
+Input: "I hate spicy food"
+Output: [{"content": "dislikes spicy food", "category": "dislike", "action": "create"}]
 
-Respond ONLY with valid JSON array. No explanations.
-`
+Input: "My favorite color is blue"
+Output: [{"content": "favorite color is blue", "category": "like", "action": "create"}]
+
+Input: "forget that I like cats" (when "loves cats" exists)
+Output: [{"content": "", "category": "like", "action": "delete", "oldContent": "loves cats"}]
+
+RULES:
+1. Use third person (e.g., "loves cats" not "I love cats")
+2. Be concise and clear
+3. Only extract definitive statements
+4. For deletion, match the oldContent to existing memories
+5. Return empty array [] if no memories found
+
+Respond with ONLY a valid JSON array. No explanations, no markdown, just the JSON.`
 
   try {
     const result = await generateText({
@@ -119,18 +121,38 @@ Respond ONLY with valid JSON array. No explanations.
       temperature: 0
     })
     
-    console.log('🧠 Knowledge Master response:', result.text)
+    console.log('🧠 Knowledge Master RAW response:', result.text)
     
-    // Parse JSON response
-    const cleanJson = result.text.trim().replace(/```json\n?|\n?```/g, '')
-    return JSON.parse(cleanJson) as ExtractedMemory[]
+    // Clean the response - remove markdown code blocks if present
+    let cleanJson = result.text.trim()
+    cleanJson = cleanJson.replace(/^```json\s*/i, '')
+    cleanJson = cleanJson.replace(/^```\s*/i, '')
+    cleanJson = cleanJson.replace(/\s*```$/i, '')
+    cleanJson = cleanJson.trim()
+    
+    console.log('🧹 Cleaned JSON:', cleanJson)
+    
+    // Parse JSON
+    const parsed = JSON.parse(cleanJson) as ExtractedMemory[]
+    console.log('✅ Successfully parsed memories:', parsed.length)
+    
+    return Array.isArray(parsed) ? parsed : []
   } catch (error) {
     console.error('❌ Memory extraction error:', error)
+    if (error instanceof Error) {
+      console.error('Error message:', error.message)
+      console.error('Error stack:', error.stack)
+    }
     return []
   }
 }
 
 export async function POST(request: NextRequest) {
+  const startTime = Date.now()
+  console.log('\n' + '='.repeat(80))
+  console.log('🚀 MEMORY EXTRACTION STARTED')
+  console.log('='.repeat(80))
+  
   try {
     // Check environment variables first
     const hasGeminiKey = !!process.env.GOOGLE_GENERATIVE_AI_API_KEY
@@ -152,16 +174,27 @@ export async function POST(request: NextRequest) {
     const { message } = await request.json()
 
     if (!message) {
+      console.error('❌ No message provided')
       return NextResponse.json({ error: 'Message is required' }, { status: 400 })
     }
 
-    console.log('🧠 Analyzing message for memories:', message)
+    console.log('📝 Message received:', message)
+    console.log('📏 Message length:', message.length, 'characters')
+
+    console.log('📝 Message received:', message)
+    console.log('📏 Message length:', message.length, 'characters')
 
     // Step 1: Check if message contains memory-worthy information
+    console.log('\n--- STEP 1: Sentinel Check ---')
+    const sentinelStart = Date.now()
     const isWorthy = await isMemoryWorthy(message)
+    console.log(`⏱️  Sentinel took ${Date.now() - sentinelStart}ms`)
     
     if (!isWorthy) {
       console.log('❌ No memory-worthy information found')
+      console.log('='.repeat(80))
+      console.log(`⏱️  Total time: ${Date.now() - startTime}ms`)
+      console.log('='.repeat(80) + '\n')
       return NextResponse.json({ 
         hasMemories: false, 
         memories: [] 
@@ -171,37 +204,57 @@ export async function POST(request: NextRequest) {
     console.log('✅ Memory-worthy information detected')
 
     // Step 2: Get existing memories
+    console.log('\n--- STEP 2: Fetch Existing Memories ---')
+    const fetchStart = Date.now()
     const { data: existingMemories, error: fetchError } = await supabaseAdmin
       .from('memories')
       .select('content')
       .order('created_at', { ascending: false })
 
+    console.log(`⏱️  Database fetch took ${Date.now() - fetchStart}ms`)
+
     if (fetchError) {
-      console.error('Error fetching memories:', fetchError)
+      console.error('❌ Error fetching memories:', fetchError)
       return NextResponse.json({ error: 'Failed to fetch existing memories' }, { status: 500 })
     }
 
     const existingContents = existingMemories?.map(m => m.content) || []
+    console.log('📚 Existing memories count:', existingContents.length)
+    if (existingContents.length > 0) {
+      console.log('📚 Existing memories:', existingContents)
+    }
 
     // Step 3: Extract specific memories
+    console.log('\n--- STEP 3: Extract Memories ---')
+    const extractStart = Date.now()
     const extractedMemories = await extractMemories(message, existingContents)
+    console.log(`⏱️  Extraction took ${Date.now() - extractStart}ms`)
     
     if (extractedMemories.length === 0) {
       console.log('❌ No specific memories extracted')
+      console.log('='.repeat(80))
+      console.log(`⏱️  Total time: ${Date.now() - startTime}ms`)
+      console.log('='.repeat(80) + '\n')
       return NextResponse.json({ 
         hasMemories: false, 
         memories: [] 
       })
     }
 
-    console.log('🔍 Extracted memories:', extractedMemories)
+    console.log('🔍 Extracted memories:', extractedMemories.length)
+    extractedMemories.forEach((mem, i) => {
+      console.log(`  ${i + 1}. [${mem.action}] ${mem.content || mem.oldContent} (${mem.category})`)
+    })
 
     // Step 4: Process extracted memories
+    console.log('\n--- STEP 4: Process Memories ---')
+    const processStart = Date.now()
     const processedMemories = []
 
     for (const memory of extractedMemories) {
       try {
         if (memory.action === 'create') {
+          console.log(`➕ Creating memory: "${memory.content}" [${memory.category}]`)
           const { data, error } = await supabaseAdmin
             .from('memories')
             .insert({
@@ -212,12 +265,13 @@ export async function POST(request: NextRequest) {
             .single()
 
           if (error) {
-            console.error('Error creating memory:', error)
+            console.error('❌ Error creating memory:', error)
           } else {
             processedMemories.push(data)
             console.log('✅ Created memory:', memory.content)
           }
         } else if (memory.action === 'update' && memory.oldContent) {
+          console.log(`🔄 Updating memory: "${memory.oldContent}" → "${memory.content}"`)
           const { data, error } = await supabaseAdmin
             .from('memories')
             .update({ 
@@ -230,12 +284,13 @@ export async function POST(request: NextRequest) {
             .single()
 
           if (error) {
-            console.error('Error updating memory:', error)
+            console.error('❌ Error updating memory:', error)
           } else {
             processedMemories.push(data)
-            console.log('🔄 Updated memory:', memory.oldContent, '->', memory.content)
+            console.log('✅ Updated memory:', memory.oldContent, '->', memory.content)
           }
         } else if (memory.action === 'delete' && memory.oldContent) {
+          console.log(`🗑️  Attempting to delete memory: "${memory.oldContent}"`)
           // Try exact match first
           let { data: deleted, error } = await supabaseAdmin
             .from('memories')
@@ -260,6 +315,7 @@ export async function POST(request: NextRequest) {
             )
             
             if (fuzzyMatches && fuzzyMatches.length > 0) {
+              console.log(`🎯 Found ${fuzzyMatches.length} fuzzy matches:`, fuzzyMatches.map(m => m.content))
               // Delete the first fuzzy match
               const { error: fuzzyError } = await supabaseAdmin
                 .from('memories')
@@ -269,13 +325,13 @@ export async function POST(request: NextRequest) {
               if (fuzzyError) {
                 console.error('❌ Error deleting fuzzy matched memory:', fuzzyError)
               } else {
-                console.log('🗑️ Deleted fuzzy matched memory:', fuzzyMatches[0].content)
+                console.log('✅ Deleted fuzzy matched memory:', fuzzyMatches[0].content)
               }
             } else {
               console.log('❌ No memory found to delete for:', memory.oldContent)
             }
           } else {
-            console.log('🗑️ Deleted exact matched memory:', memory.oldContent)
+            console.log('✅ Deleted exact matched memory:', memory.oldContent)
           }
 
           if (error) {
@@ -283,9 +339,16 @@ export async function POST(request: NextRequest) {
           }
         }
       } catch (error) {
-        console.error('Error processing memory:', error)
+        console.error('❌ Error processing memory:', error)
       }
     }
+
+    console.log(`⏱️  Processing took ${Date.now() - processStart}ms`)
+    console.log(`✅ Successfully processed ${processedMemories.length} memories`)
+    
+    console.log('\n' + '='.repeat(80))
+    console.log(`⏱️  TOTAL TIME: ${Date.now() - startTime}ms`)
+    console.log('='.repeat(80) + '\n')
 
     return NextResponse.json({
       hasMemories: true,
@@ -295,7 +358,11 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error) {
+    console.error('\n' + '='.repeat(80))
+    console.error('❌ MEMORY EXTRACTION FAILED')
+    console.error('='.repeat(80))
     console.error('Memory extraction API error:', error)
+    console.error('='.repeat(80) + '\n')
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 } 
