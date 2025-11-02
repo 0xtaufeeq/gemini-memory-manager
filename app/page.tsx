@@ -547,7 +547,7 @@ export default function GeminiMemoryManager() {
       {/* Animated Grid Pattern Background */}
       <AnimatedGridPattern
         numSquares={30}
-        maxOpacity={0.1}
+        maxOpacity={0.15}
         duration={3}
         className="pointer-events-none"
       />
@@ -596,14 +596,14 @@ export default function GeminiMemoryManager() {
       <div
         className={`${
           sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
-        } fixed lg:relative z-50 lg:z-auto transition-all duration-300 ease-out bg-black border-r border-zinc-800 flex flex-col overflow-hidden h-full 
+        } fixed lg:relative z-50 lg:z-auto transition-all duration-300 ease-out bg-black/60 backdrop-blur-md border-r border-zinc-800/50 flex flex-col overflow-hidden h-full 
         w-80 lg:w-auto ${!sidebarOpen ? "lg:w-0" : ""}`}
         style={{ 
           width: sidebarOpen ? `${sidebarWidth}px` : '0px',
           transition: isResizing ? 'none' : 'all 0.3s ease-out'
         }}
       >
-        <div className="p-4 border-b border-zinc-800">
+        <div className="p-4 border-b border-zinc-800/50">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-2">
               <div className="w-8 h-8 rounded-sm overflow-hidden">
@@ -662,7 +662,7 @@ export default function GeminiMemoryManager() {
 
         {/* Clear History Button */}
         {chatSessions.length > 0 && (
-          <div className="p-4 border-t border-zinc-800">
+          <div className="p-4 border-t border-zinc-800/50">
             <Button
               onClick={() => setDeleteAllHistoryOpen(true)}
               variant="ghost"
@@ -708,9 +708,9 @@ export default function GeminiMemoryManager() {
       </div>
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col bg-black h-full min-h-0">
+      <div className="flex-1 flex flex-col bg-black/40 backdrop-blur-sm h-full min-h-0">
         {/* Header */}
-        <div className="flex items-center justify-between p-3 sm:p-4 border-b border-zinc-800">
+          <div className="flex items-center justify-between p-3 sm:p-4 border-b border-zinc-800/50">
           <div className="flex items-center space-x-2 sm:space-x-3 flex-1 min-w-0">
               <Button
                 variant="ghost"
@@ -890,7 +890,7 @@ export default function GeminiMemoryManager() {
         </div>
 
         {/* Input */}
-        <div className="p-3 sm:p-4 border-t border-zinc-800 flex-shrink-0">
+        <div className="p-3 sm:p-4 border-t border-zinc-800/50 flex-shrink-0">
           <form onSubmit={handleCustomSubmit} className="max-w-3xl mx-auto">
             <div className="relative">
                 <Input
@@ -917,14 +917,14 @@ export default function GeminiMemoryManager() {
       <div
         className={`${
           memoryOpen ? "translate-x-0" : "translate-x-full lg:translate-x-0"
-        } fixed lg:relative right-0 top-0 z-50 lg:z-auto transition-all duration-300 ease-out bg-black border-l border-zinc-800 flex flex-col overflow-hidden h-full 
+        } fixed lg:relative right-0 top-0 z-50 lg:z-auto transition-all duration-300 ease-out bg-black/60 backdrop-blur-md border-l border-zinc-800/50 flex flex-col overflow-hidden h-full 
         ${!memoryOpen ? "lg:w-0" : ""}`}
         style={{ 
           width: memoryOpen ? `${memoryWidth}px` : '0px',
           transition: isResizingMemory ? 'none' : 'all 0.3s ease-out'
         }}
       >
-          <div className="p-4 border-b border-zinc-800">
+          <div className="p-4 border-b border-zinc-800/50">
             <div className="flex items-center justify-between mb-2">
               <h2 className="font-medium text-white">
                 Memory
@@ -1062,7 +1062,7 @@ export default function GeminiMemoryManager() {
 
           {/* Clear All Memories Button - Bottom */}
           {memories.length > 0 && (
-            <div className="p-4 border-t border-zinc-800">
+            <div className="p-4 border-t border-zinc-800/50">
               <Button
                 onClick={() => setDeleteAllMemoriesOpen(true)}
                 variant="ghost"

@@ -35,7 +35,7 @@ export function MagicCard({
       onMouseEnter={() => setIsHovering(true)}
       onMouseLeave={() => setIsHovering(false)}
       className={cn(
-        "group relative flex size-full overflow-hidden rounded-xl border bg-black/50 backdrop-blur-md transition-shadow duration-300",
+        "group relative flex size-full overflow-hidden rounded-xl border bg-black/20 backdrop-blur-md transition-shadow duration-300",
         className
       )}
       {...props}
