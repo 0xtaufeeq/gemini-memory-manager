@@ -35,7 +35,7 @@ async function getRelevantMemories(messages: any[], memories: any[]) {
       const memoryWords = memoryContent.split(' ')
       
       // Check if any memory words appear in the conversation
-      const hasDirectMatch = memoryWords.some(word => conversationText.includes(word))
+      const hasDirectMatch = memoryWords.some((word: string) => conversationText.includes(word))
       
       // Special semantic matching for common questions
       const isAnimalQuestion = conversationText.includes('animal') && memoryContent.includes('cat')
@@ -124,7 +124,7 @@ Guidelines for using memories:
     }
 
     const result = streamText({
-      model: google(model || "gemini-2.5-pro"),
+      model: google(model || "gemini-2.5-flash"),
       messages: [systemMessage, ...messages],
       temperature: 0.7,
       maxTokens: 4000,

@@ -3,7 +3,7 @@ import { generateText } from 'ai'
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 
-const model = google('gemini-1.5-pro')
+const model = google('gemini-2.5-flash')
 
 // Memory categories and actions
 type MemoryCategory = 'allergy' | 'like' | 'dislike' | 'attribute'
