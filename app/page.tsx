@@ -2,13 +2,24 @@
 
 import type React from "react"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { useChat } from "ai/react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 import { ScrollArea } from "@/components/ui/scroll-area"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { useToast } from "@/hooks/use-toast"
 
 import { MessageSquare, Plus, Trash2, Send, User, Bot, Menu, X, Edit2 } from "lucide-react"
 import ReactMarkdown from 'react-markdown'
@@ -48,11 +59,30 @@ export default function GeminiMemoryManager() {
   const [sidebarWidth, setSidebarWidth] = useState(256) // 256px = w-64
   const [isResizing, setIsResizing] = useState(false)
   const [memoryOpen, setMemoryOpen] = useState(false)
+  const [memoryWidth, setMemoryWidth] = useState(320) // 320px default width for memory panel
+  const [isResizingMemory, setIsResizingMemory] = useState(false)
   const [editingMemory, setEditingMemory] = useState<string | null>(null)
   const [editContent, setEditContent] = useState("")
   const [memoryProcessing, setMemoryProcessing] = useState(false)
   const [isAppLoading, setIsAppLoading] = useState(true)
   const [loadingText, setLoadingText] = useState("Initializing...")
+  
+  // Dialog states for delete confirmations
+  const [deleteAllHistoryOpen, setDeleteAllHistoryOpen] = useState(false)
+  const [deleteAllMemoriesOpen, setDeleteAllMemoriesOpen] = useState(false)
+  const [deleteChatDialogOpen, setDeleteChatDialogOpen] = useState(false)
+  const [chatToDelete, setChatToDelete] = useState<{ id: string; title: string } | null>(null)
+  
+  const { toast } = useToast()
+  
+  // Helper function to get friendly model name
+  const getModelDisplayName = (model: string): string => {
+    const modelNames: Record<string, string> = {
+      "gemini-2.5-pro": "Gemini 2.5 Pro",
+      "gemini-2.5-flash": "Gemini 2.5 Flash",
+    }
+    return modelNames[model] || model
+  }
 
   const { messages, input, handleInputChange, handleSubmit, isLoading, setMessages, append } = useChat({
     api: "/api/chat",
@@ -122,10 +152,25 @@ export default function GeminiMemoryManager() {
     }
   }, [messages])
 
-  // Log when model changes
+  // Show toast notification when model changes
+  const prevModelRef = useRef<string>(selectedModel)
   useEffect(() => {
+    // Skip toast on initial mount or if model hasn't actually changed
+    if (isAppLoading || prevModelRef.current === selectedModel) {
+      prevModelRef.current = selectedModel
+      return
+    }
+    
+    const modelName = getModelDisplayName(selectedModel)
+    toast({
+      title: "Model Switched",
+      description: `Now using ${modelName}`,
+      duration: 2500,
+      className: "bg-zinc-900 border-zinc-700 text-white",
+    })
     console.log(`🎯 Model changed to: ${selectedModel}`)
-  }, [selectedModel])
+    prevModelRef.current = selectedModel
+  }, [selectedModel, isAppLoading, toast])
 
   // Mock user data
   const mockUser = {
@@ -272,7 +317,7 @@ export default function GeminiMemoryManager() {
 
   // Add body cursor style when resizing
   useEffect(() => {
-    if (isResizing) {
+    if (isResizing || isResizingMemory) {
       document.body.style.cursor = 'col-resize'
       document.body.style.userSelect = 'none'
     } else {
@@ -284,7 +329,7 @@ export default function GeminiMemoryManager() {
       document.body.style.cursor = ''
       document.body.style.userSelect = ''
     }
-  }, [isResizing])
+  }, [isResizing, isResizingMemory])
 
   // Chat session management functions
   const fetchChatSessions = async () => {
@@ -380,25 +425,24 @@ export default function GeminiMemoryManager() {
   }
 
   const clearAllHistory = async () => {
-    if (confirm("Are you sure you want to delete all chat history? This will only delete chats, not memories.")) {
-      try {
-        console.log('🗑️ Clearing all chat history...')
-        
-        // Clear all chat sessions from database
-        const deleteSessionPromises = chatSessions.map(session => 
-          fetch(`/api/chat-sessions?id=${session.id}`, { method: 'DELETE' })
-        )
-        await Promise.all(deleteSessionPromises)
-        
-        // Clear chat sessions UI
-        setChatSessions([])
-        setCurrentSessionId("")
-        setMessages([])
-        
-        console.log('✅ All chat history cleared (memories preserved)')
-      } catch (error) {
-        console.error('❌ Error clearing chat history:', error)
-      }
+    try {
+      console.log('🗑️ Clearing all chat history...')
+      
+      // Clear all chat sessions from database
+      const deleteSessionPromises = chatSessions.map(session => 
+        fetch(`/api/chat-sessions?id=${session.id}`, { method: 'DELETE' })
+      )
+      await Promise.all(deleteSessionPromises)
+      
+      // Clear chat sessions UI
+      setChatSessions([])
+      setCurrentSessionId("")
+      setMessages([])
+      
+      setDeleteAllHistoryOpen(false)
+      console.log('✅ All chat history cleared (memories preserved)')
+    } catch (error) {
+      console.error('❌ Error clearing chat history:', error)
     }
   }
 
@@ -415,6 +459,7 @@ export default function GeminiMemoryManager() {
       
       // Clear the UI
       setMemories([])
+      setDeleteAllMemoriesOpen(false)
       console.log('✅ All memories cleared')
     } catch (error) {
       console.error('❌ Error clearing memories:', error)
@@ -423,16 +468,23 @@ export default function GeminiMemoryManager() {
 
   const deleteIndividualChat = async (sessionId: string, sessionTitle: string, e: React.MouseEvent) => {
     e.stopPropagation() // Prevent triggering the chat load
+    setChatToDelete({ id: sessionId, title: sessionTitle })
+    setDeleteChatDialogOpen(true)
+  }
+
+  const confirmDeleteIndividualChat = async () => {
+    if (!chatToDelete) return
     
-    if (confirm(`Are you sure you want to delete "${sessionTitle}"? This action cannot be undone.`)) {
-      await deleteChatSession(sessionId)
-      
-      // If we're deleting the current session, clear the chat
-      if (currentSessionId === sessionId) {
-        setCurrentSessionId("")
-        setMessages([])
-      }
+    await deleteChatSession(chatToDelete.id)
+    
+    // If we're deleting the current session, clear the chat
+    if (currentSessionId === chatToDelete.id) {
+      setCurrentSessionId("")
+      setMessages([])
     }
+    
+    setDeleteChatDialogOpen(false)
+    setChatToDelete(null)
   }
 
   const loadChatSession = (session: ChatSession) => {
@@ -458,6 +510,26 @@ export default function GeminiMemoryManager() {
 
     const handleMouseUp = () => {
       setIsResizing(false)
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+  }, [])
+
+  // Memory panel resize functionality
+  const handleMemoryMouseDown = useCallback((e: React.MouseEvent) => {
+    setIsResizingMemory(true)
+    e.preventDefault()
+    
+    const handleMouseMove = (e: MouseEvent) => {
+      const newWidth = Math.max(280, Math.min(600, window.innerWidth - e.clientX)) // Min 280px, Max 600px
+      setMemoryWidth(newWidth)
+    }
+
+    const handleMouseUp = () => {
+      setIsResizingMemory(false)
       document.removeEventListener('mousemove', handleMouseMove)
       document.removeEventListener('mouseup', handleMouseUp)
     }
@@ -508,7 +580,7 @@ export default function GeminiMemoryManager() {
       )}
       
       {/* Resize Overlay */}
-      {isResizing && (
+      {(isResizing || isResizingMemory) && (
         <div className="absolute inset-0 z-50 bg-black bg-opacity-20 pointer-events-none" />
       )}
       {/* Sidebar */}
@@ -583,7 +655,7 @@ export default function GeminiMemoryManager() {
         {chatSessions.length > 0 && (
           <div className="p-4 border-t border-zinc-800">
             <Button
-              onClick={clearAllHistory}
+              onClick={() => setDeleteAllHistoryOpen(true)}
               variant="ghost"
               className="w-full text-red-400 hover:text-red-300 hover:bg-red-500/10 text-sm"
             >
@@ -645,18 +717,6 @@ export default function GeminiMemoryManager() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-zinc-900 border-zinc-700">
-                  <SelectItem value="gemini-1.5-pro" className="text-white hover:bg-zinc-800 text-xs sm:text-sm">
-                    <span className="hidden sm:inline">Gemini 1.5 Pro</span>
-                    <span className="sm:hidden">1.5 Pro</span>
-                  </SelectItem>
-                  <SelectItem value="gemini-1.5-flash" className="text-white hover:bg-zinc-800 text-xs sm:text-sm">
-                    <span className="hidden sm:inline">Gemini 1.5 Flash</span>
-                    <span className="sm:hidden">1.5 Flash</span>
-                  </SelectItem>
-                  <SelectItem value="gemini-2.0-flash-exp" className="text-white hover:bg-zinc-800 text-xs sm:text-sm">
-                    <span className="hidden sm:inline">Gemini 2.0 Flash (Experimental)</span>
-                    <span className="sm:hidden">2.0 Flash</span>
-                  </SelectItem>
                   <SelectItem value="gemini-2.5-pro" className="text-white hover:bg-zinc-800 text-xs sm:text-sm">
                     <span className="hidden sm:inline">Gemini 2.5 Pro</span>
                     <span className="sm:hidden">2.5 Pro</span>
@@ -843,10 +903,16 @@ export default function GeminiMemoryManager() {
       </div>
 
       {/* Memory Panel */}
-      <div className={`${
+      <div
+        className={`${
           memoryOpen ? "translate-x-0" : "translate-x-full lg:translate-x-0"
         } fixed lg:relative right-0 top-0 z-50 lg:z-auto transition-all duration-300 ease-out bg-black border-l border-zinc-800 flex flex-col overflow-hidden h-full 
-        w-80 lg:w-auto ${!memoryOpen ? "lg:w-0" : ""}`}>
+        ${!memoryOpen ? "lg:w-0" : ""}`}
+        style={{ 
+          width: memoryOpen ? `${memoryWidth}px` : '0px',
+          transition: isResizingMemory ? 'none' : 'all 0.3s ease-out'
+        }}
+      >
           <div className="p-4 border-b border-zinc-800">
             <div className="flex items-center justify-between mb-2">
               <h2 className="font-medium text-white">
@@ -890,16 +956,16 @@ export default function GeminiMemoryManager() {
             </div>
         </div>
 
-          <ScrollArea className="flex-1 p-4 overflow-hidden">
-          <div className="space-y-3">
+          <ScrollArea className="flex-1 p-2 overflow-hidden">
+          <div className="space-y-2">
               {memories.map((memory) => (
                 <div
                 key={memory.id}
                   className="bg-zinc-900 border border-zinc-800 rounded-lg p-3 group hover:bg-zinc-800/50 transition-colors"
               >
-                  <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-start justify-between mb-2 gap-2">
                     {editingMemory === memory.id ? (
-                      <div className="flex-1 pr-2">
+                      <div className="flex-1 min-w-0">
                         <Input
                           value={editContent}
                           onChange={(e) => setEditContent(e.target.value)}
@@ -931,13 +997,13 @@ export default function GeminiMemoryManager() {
                       </div>
                     ) : (
                       <>
-                        <p className="text-sm text-white leading-relaxed flex-1 pr-2">{memory.content}</p>
-                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <p className="text-sm text-white leading-relaxed flex-1 min-w-0 break-words pr-2">{memory.content}</p>
+                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => startEditMemory(memory)}
-                            className="h-6 w-6 p-0 text-zinc-400 hover:text-blue-400 hover:bg-blue-500/10 flex-shrink-0"
+                            className="h-6 w-6 p-0 text-zinc-400 hover:text-blue-400 hover:bg-blue-500/10"
                           >
                             <Edit2 className="w-3 h-3" />
                           </Button>
@@ -945,7 +1011,7 @@ export default function GeminiMemoryManager() {
                       variant="ghost"
                       size="sm"
                       onClick={() => deleteMemory(memory.id)}
-                            className="h-6 w-6 p-0 text-zinc-400 hover:text-red-400 hover:bg-red-500/10 flex-shrink-0"
+                            className="h-6 w-6 p-0 text-zinc-400 hover:text-red-400 hover:bg-red-500/10"
                     >
                       <Trash2 className="w-3 h-3" />
                     </Button>
@@ -953,7 +1019,7 @@ export default function GeminiMemoryManager() {
                       </>
                     )}
                   </div>
-                  <div className="flex justify-between items-center">
+                  <div className="flex justify-between items-center mt-2">
                     <div className="text-xs text-zinc-500 capitalize">
                       {memory.category}
                     </div>
@@ -983,11 +1049,7 @@ export default function GeminiMemoryManager() {
           {memories.length > 0 && (
             <div className="p-4 border-t border-zinc-800">
               <Button
-                onClick={() => {
-                  if (confirm("Are you sure you want to delete ALL memories? This action cannot be undone.")) {
-                    clearAllMemories()
-                  }
-                }}
+                onClick={() => setDeleteAllMemoriesOpen(true)}
                 variant="ghost"
                 className="w-full text-red-400 hover:text-red-300 hover:bg-red-500/10 text-sm"
               >
@@ -996,7 +1058,71 @@ export default function GeminiMemoryManager() {
               </Button>
             </div>
           )}
+
+        {/* Resize Handle - Desktop Only */}
+        {memoryOpen && (
+          <div
+            className={`hidden lg:block absolute left-0 top-0 bottom-0 w-2 bg-transparent hover:bg-zinc-600/50 cursor-col-resize transition-colors z-10 ${
+              isResizingMemory ? 'bg-zinc-500/50' : ''
+            }`}
+            onMouseDown={handleMemoryMouseDown}
+            style={{ cursor: 'col-resize' }}
+          >
+            {/* Visual grip indicator */}
+            <div className="absolute left-0.5 top-1/2 transform -translate-y-1/2 w-1 h-12 bg-zinc-600 rounded-full opacity-60 hover:opacity-100 transition-opacity flex items-center justify-center">
+              <div className="w-0.5 h-6 bg-zinc-300 rounded-full"></div>
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Delete All Chat History Dialog */}
+      <AlertDialog open={deleteAllHistoryOpen} onOpenChange={setDeleteAllHistoryOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete All Chat History?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete all chat history? This will only delete chats, not memories. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={clearAllHistory}>Delete All</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Individual Chat Dialog */}
+      <AlertDialog open={deleteChatDialogOpen} onOpenChange={setDeleteChatDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Chat?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{chatToDelete?.title}"? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteIndividualChat}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete All Memories Dialog */}
+      <AlertDialog open={deleteAllMemoriesOpen} onOpenChange={setDeleteAllMemoriesOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete All Memories?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete ALL memories? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={clearAllMemories}>Delete All</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

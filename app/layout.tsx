@@ -1,17 +1,21 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Inter, JetBrains_Mono } from "next/font/google"
+import { Inter } from "next/font/google"
 import "./globals.css"
+import { Toaster } from "@/components/ui/toaster"
 
+// SF Pro inspired setup - Inter with multiple weights for typography hierarchy
 const inter = Inter({
   subsets: ["latin"],
-  variable: "--font-inter",
+  variable: "--font-sans",
+  display: "swap",
+  weight: ["300", "400", "500", "600", "700"],
 })
 
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ["latin"],
+// System monospace font for code
+const systemMono = {
   variable: "--font-mono",
-})
+}
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://gemini-memory-manager.vercel.app'),
@@ -102,8 +106,11 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className="dark">
-      <body className={`${inter.variable} ${jetbrainsMono.variable} font-sans antialiased`}>{children}</body>
+    <html lang="en" className="dark" suppressHydrationWarning>
+      <body className={`${inter.variable} ${systemMono.variable} font-sans antialiased`} suppressHydrationWarning>
+        {children}
+        <Toaster />
+      </body>
     </html>
   )
 }
